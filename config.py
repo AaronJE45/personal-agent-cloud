@@ -1,6 +1,8 @@
 # config.py
 import os
+import re
 import json
+import time
 import requests
 from dotenv import load_dotenv
 
@@ -21,6 +23,8 @@ Guidelines:
 
 LLM_API_KEY = os.getenv("LLM_API_KEY", "").strip()
 LLM_MODEL = os.getenv("LLM_MODEL", "gemini-2.5-flash").strip()
+GEMINI_MAX_RETRIES = 4
+GEMINI_MAX_RETRY_WAIT = 45.0
 
 
 def check_api_configuration() -> bool:
@@ -57,6 +61,43 @@ def _format_gemini_error(resp: requests.Response) -> str:
     if not message:
         message = (resp.text or "").strip()[:300] or resp.reason
     return f"Gemini API error {resp.status_code}: {message}"
+
+
+def _retry_after_seconds(resp: requests.Response, attempt: int) -> float:
+    header = resp.headers.get("Retry-After", "").strip()
+    if header:
+        try:
+            return max(1.0, float(header))
+        except ValueError:
+            pass
+
+    try:
+        payload = resp.json()
+        for detail in payload.get("error", {}).get("details", []):
+            delay = str(detail.get("retryDelay", "")).strip()
+            match = re.match(r"([\d.]+)\s*s?", delay, re.I)
+            if match:
+                return max(1.0, float(match.group(1)))
+        message = payload.get("error", {}).get("message", "")
+        match = re.search(r"retry in ([\d.]+)", message, re.I)
+        if match:
+            return max(1.0, float(match.group(1)))
+    except Exception:
+        pass
+
+    return float(min(2 ** attempt, 16))
+
+
+def _post_gemini(url: str, payload: dict, headers: dict) -> requests.Response:
+    last_response = None
+    for attempt in range(GEMINI_MAX_RETRIES + 1):
+        last_response = requests.post(url, json=payload, headers=headers, timeout=30)
+        if last_response.status_code != 429 or attempt == GEMINI_MAX_RETRIES:
+            return last_response
+        wait = min(_retry_after_seconds(last_response, attempt), GEMINI_MAX_RETRY_WAIT)
+        print(f"⚠️ Gemini rate limit (429). Retrying in {wait:.0f}s (attempt {attempt + 1}/{GEMINI_MAX_RETRIES})...")
+        time.sleep(wait)
+    return last_response
 
 
 def call_model_api(
@@ -121,12 +162,12 @@ def call_model_api(
     }
 
     try:
-        resp = requests.post(url, json=payload, headers=headers, timeout=30)
+        resp = _post_gemini(url, payload, headers)
         if resp.status_code in (401, 403):
             err = "Authentication error (401/403): Check your LLM_API_KEY in .env."
             return {"type": "text", "content": err} if return_structured else err
         if resp.status_code == 429:
-            err = "Rate limit reached (429): Please wait 30-60 seconds and try again."
+            err = "Rate limit reached (429): Gemini is still busy after retries. Please wait a minute and try again."
             return {"type": "text", "content": err} if return_structured else err
         if not resp.ok:
             err = _format_gemini_error(resp)

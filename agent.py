@@ -94,6 +94,17 @@ AVAILABLE_TOOLS = {
 }
 
 
+def _is_transient_api_error(text: str) -> bool:
+    lowered = (text or "").lower()
+    return any(marker in lowered for marker in (
+        "rate limit reached",
+        "gemini api error",
+        "network or api error",
+        "authentication error",
+        "api key is missing",
+    ))
+
+
 def reset_conversation(user_id: str = "default_user") -> str:
     CONVERSATION_HISTORY[user_id] = []
     return "Conversation history has been reset. Your saved tasks and notes remain intact."
@@ -135,6 +146,8 @@ def generate_reply(user_message: str, user_id: str = "default_user") -> str:
 
         if response.get("type") != "tool_call":
             final_text = response.get("content", "I'm not sure how to respond to that.")
+            if _is_transient_api_error(final_text):
+                return final_text
             updated_history = user_history + [
                 {"role": "user", "content": cleaned_input},
                 {"role": "assistant", "content": final_text},
