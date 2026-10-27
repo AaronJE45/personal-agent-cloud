@@ -24,36 +24,36 @@ PROCESSED_MESSAGE_IDS: set[str] = set()
 
 @app.get("/", response_class=HTMLResponse)
 async def web_chat_playground():
-    return f"""
+    html = """
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{AGENT_NAME} — Cloud Agent Playground</title>
+    <title>__AGENT_NAME__ — Cloud Agent Playground</title>
     <style>
-        body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0f172a; color: #f8fafc; margin: 0; padding: 0; display: flex; justify-content: center; align-items: center; height: 100vh; }}
-        .chat-container {{ width: 100%; max-width: 600px; height: 90vh; background: #1e293b; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.3); display: flex; flex-direction: column; overflow: hidden; border: 1px solid #334155; }}
-        .chat-header {{ background: #0284c7; padding: 16px; font-size: 1.1rem; font-weight: bold; display: flex; justify-content: space-between; align-items: center; }}
-        .chat-messages {{ flex: 1; padding: 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; }}
-        .message {{ max-width: 80%; padding: 10px 14px; border-radius: 8px; line-height: 1.4; font-size: 0.95rem; }}
-        .message.user {{ background: #0369a1; align-self: flex-end; border-bottom-right-radius: 2px; }}
-        .message.assistant {{ background: #334155; align-self: flex-start; border-bottom-left-radius: 2px; }}
-        .chat-input-box {{ padding: 12px; background: #0f172a; display: flex; gap: 8px; border-top: 1px solid #334155; }}
-        input {{ flex: 1; padding: 10px 14px; background: #1e293b; border: 1px solid #475569; border-radius: 6px; color: #f8fafc; font-size: 0.95rem; outline: none; }}
-        input:focus {{ border-color: #0284c7; }}
-        button {{ padding: 10px 20px; background: #0284c7; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; transition: background 0.2s; }}
-        button:hover {{ background: #0369a1; }}
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0f172a; color: #f8fafc; margin: 0; padding: 0; display: flex; justify-content: center; align-items: center; height: 100vh; }
+        .chat-container { width: 100%; max-width: 600px; height: 90vh; background: #1e293b; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.3); display: flex; flex-direction: column; overflow: hidden; border: 1px solid #334155; }
+        .chat-header { background: #0284c7; padding: 16px; font-size: 1.1rem; font-weight: bold; display: flex; justify-content: space-between; align-items: center; }
+        .chat-messages { flex: 1; padding: 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; }
+        .message { max-width: 80%; padding: 10px 14px; border-radius: 8px; line-height: 1.4; font-size: 0.95rem; }
+        .message.user { background: #0369a1; align-self: flex-end; border-bottom-right-radius: 2px; }
+        .message.assistant { background: #334155; align-self: flex-start; border-bottom-left-radius: 2px; }
+        .chat-input-box { padding: 12px; background: #0f172a; display: flex; gap: 8px; border-top: 1px solid #334155; }
+        input { flex: 1; padding: 10px 14px; background: #1e293b; border: 1px solid #475569; border-radius: 6px; color: #f8fafc; font-size: 0.95rem; outline: none; }
+        input:focus { border-color: #0284c7; }
+        button { padding: 10px 20px; background: #0284c7; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; transition: background 0.2s; }
+        button:hover { background: #0369a1; }
     </style>
 </head>
 <body>
     <div class="chat-container">
         <div class="chat-header">
-            <span>🤖 {AGENT_NAME} (Cloud Agent)</span>
+            <span>🤖 __AGENT_NAME__ (Cloud Agent)</span>
             <span style="font-size: 0.8rem; background: #0369a1; padding: 4px 8px; border-radius: 4px;">Live Online</span>
         </div>
         <div class="chat-messages" id="chatMessages">
-            <div class="message assistant">Hello! I'm {AGENT_NAME}, your cloud-hosted personal assistant. How can I help you manage your tasks and notes today?</div>
+            <div class="message assistant">Hello! I'm __AGENT_NAME__, your cloud-hosted personal assistant. How can I help you manage your tasks and notes today?</div>
         </div>
         <div class="chat-input-box">
             <input type="text" id="userInput" placeholder="Type a message or try 'Add buy milk to my tasks'..." autofocus>
@@ -106,6 +106,7 @@ async def web_chat_playground():
 </body>
 </html>
     """
+    return html.replace("__AGENT_NAME__", AGENT_NAME)
 
 
 @app.post("/api/chat")
