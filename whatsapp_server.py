@@ -95,7 +95,7 @@ async def web_chat_playground():
         function appendMessage(text, sender) {
             const div = document.createElement('div');
             div.className = `message ${sender}`;
-            const id = 'msg-' + Math.random().toString(36.substring(2, 9));
+            const id = 'msg-' + Math.random().toString(36).substring(2, 9);
             div.id = id;
             div.innerText = text;
             messagesDiv.appendChild(div);
