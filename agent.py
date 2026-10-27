@@ -1,7 +1,7 @@
 # agent.py
 import json
 from config import AGENT_NAME, SYSTEM_INSTRUCTION, call_model_api
-from tools import add_task, list_tasks, complete_task, save_note, search_notes, get_current_time
+from tools import add_task, list_tasks, complete_task, save_note, search_notes
 
 MAX_STEPS = 5
 MAX_HISTORY_MESSAGES = 10
@@ -73,15 +73,6 @@ TOOL_SCHEMAS = [
             "required": []
         }
     },
-    {
-        "name": "get_current_time",
-        "description": "Returns the current server date and time when the user asks for the time or date.",
-        "parameters": {
-            "type": "object",
-            "properties": {},
-            "required": []
-        }
-    }
 ]
 
 AVAILABLE_TOOLS = {
@@ -90,7 +81,6 @@ AVAILABLE_TOOLS = {
     "complete_task": complete_task,
     "save_note": save_note,
     "search_notes": search_notes,
-    "get_current_time": get_current_time,
 }
 
 
