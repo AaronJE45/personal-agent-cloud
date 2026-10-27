@@ -30,6 +30,35 @@ def check_api_configuration() -> bool:
     return True
 
 
+def _gemini_function_declarations(tools: list) -> list:
+    declarations = []
+    for tool in tools:
+        declaration = {
+            "name": tool["name"],
+            "description": tool.get("description", ""),
+        }
+        parameters = tool.get("parameters") or {}
+        properties = parameters.get("properties") or {}
+        if properties:
+            schema = {"type": "object", "properties": properties}
+            required = parameters.get("required") or []
+            if required:
+                schema["required"] = required
+            declaration["parameters"] = schema
+        declarations.append(declaration)
+    return declarations
+
+
+def _format_gemini_error(resp: requests.Response) -> str:
+    try:
+        message = resp.json().get("error", {}).get("message", "").strip()
+    except Exception:
+        message = ""
+    if not message:
+        message = (resp.text or "").strip()[:300] or resp.reason
+    return f"Gemini API error {resp.status_code}: {message}"
+
+
 def call_model_api(
     system_instruction: str,
     user_message: str = "",
@@ -51,7 +80,9 @@ def call_model_api(
         if role == "user":
             contents.append({"role": "user", "parts": [{"text": str(msg.get("content", ""))}]})
         elif role == "assistant":
-            if "tool_call" in msg:
+            if msg.get("model_content"):
+                contents.append(msg["model_content"])
+            elif "tool_call" in msg:
                 tc = msg["tool_call"]
                 contents.append({
                     "role": "model",
@@ -64,14 +95,15 @@ def call_model_api(
                 parsed_resp = json.loads(msg.get("content", "{}"))
             except Exception:
                 parsed_resp = {"result": msg.get("content", "")}
+            function_response = {
+                "name": msg.get("name", "tool"),
+                "response": parsed_resp,
+            }
+            if msg.get("tool_call_id"):
+                function_response["id"] = msg["tool_call_id"]
             contents.append({
                 "role": "user",
-                "parts": [{
-                    "functionResponse": {
-                        "name": msg.get("name", "tool"),
-                        "response": parsed_resp
-                    }
-                }]
+                "parts": [{"functionResponse": function_response}],
             })
 
     payload: dict = {
@@ -80,27 +112,34 @@ def call_model_api(
     }
 
     if tools:
-        payload["tools"] = [{"functionDeclarations": tools}]
+        payload["tools"] = [{"functionDeclarations": _gemini_function_declarations(tools)}]
 
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/{LLM_MODEL}:generateContent?key={LLM_API_KEY}"
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{LLM_MODEL}:generateContent"
+    headers = {
+        "Content-Type": "application/json",
+        "x-goog-api-key": LLM_API_KEY,
+    }
 
     try:
-        resp = requests.post(url, json=payload, timeout=30)
+        resp = requests.post(url, json=payload, headers=headers, timeout=30)
         if resp.status_code in (401, 403):
             err = "Authentication error (401/403): Check your LLM_API_KEY in .env."
             return {"type": "text", "content": err} if return_structured else err
         if resp.status_code == 429:
             err = "Rate limit reached (429): Please wait 30-60 seconds and try again."
             return {"type": "text", "content": err} if return_structured else err
-        resp.raise_for_status()
-        data = resp.json()
+        if not resp.ok:
+            err = _format_gemini_error(resp)
+            return {"type": "text", "content": err} if return_structured else err
 
+        data = resp.json()
         candidates = data.get("candidates", [])
         if not candidates:
             err = "Model returned no candidates."
             return {"type": "text", "content": err} if return_structured else err
 
-        parts = candidates[0].get("content", {}).get("parts", [])
+        model_content = candidates[0].get("content") or {}
+        parts = model_content.get("parts", [])
         for part in parts:
             if "functionCall" in part:
                 fc = part["functionCall"]
@@ -108,6 +147,11 @@ def call_model_api(
                     "type": "tool_call",
                     "tool_name": fc.get("name", ""),
                     "arguments": fc.get("args", {}) or {},
+                    "tool_call_id": fc.get("id"),
+                    "model_content": {
+                        "role": model_content.get("role", "model"),
+                        "parts": parts,
+                    },
                 }
 
         text_reply = "".join(part.get("text", "") for part in parts).strip()

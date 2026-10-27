@@ -149,12 +149,14 @@ def generate_reply(user_message: str, user_id: str = "default_user") -> str:
 
         messages.append({
             "role": "assistant",
-            "tool_call": {"name": tool_name, "arguments": tool_args}
+            "tool_call": {"name": tool_name, "arguments": tool_args},
+            "model_content": response.get("model_content"),
         })
         messages.append({
             "role": "tool",
             "name": tool_name,
-            "content": json.dumps(tool_result)
+            "content": json.dumps(tool_result),
+            "tool_call_id": response.get("tool_call_id"),
         })
 
     return "I reached my maximum step limit while working on your request. Please try breaking it into smaller steps."
