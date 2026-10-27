@@ -99,26 +99,6 @@ def reset_conversation(user_id: str = "default_user") -> str:
     CONVERSATION_HISTORY[user_id] = []
     return "Conversation history has been reset. Your saved tasks and notes remain intact."
 
-
-def execute_tool_call(tool_name: str, arguments: dict, user_id: str = "default_user") -> dict:
-    if tool_name not in AVAILABLE_TOOLS:
-        return {
-            "status": "error",
-            "message": f"Unknown tool '{tool_name}'. Available tools: {list(AVAILABLE_TOOLS.keys())}"
-        }
-
-    tool_function = AVAILABLE_TOOLS[tool_name]
-    try:
-        call_args = dict(arguments or {})
-        call_args["user_id"] = user_id
-        return tool_function(**call_args)
-    except Exception as exc:
-        return {
-            "status": "error",
-            "message": f"Error executing tool '{tool_name}': {str(exc)}"
-        }
-
-
 def generate_reply(user_message: str, user_id: str = "default_user") -> str:
     cleaned_input = user_message.strip()
     if cleaned_input.lower() in ["/reset", "reset"]:
@@ -163,3 +143,21 @@ def generate_reply(user_message: str, user_id: str = "default_user") -> str:
         })
 
     return "I reached my maximum step limit while working on your request. Please try breaking it into smaller steps."
+
+def execute_tool_call(tool_name: str, arguments: dict, user_id: str = "default_user") -> dict:
+    if tool_name not in AVAILABLE_TOOLS:
+        return {
+            "status": "error",
+            "message": f"Unknown tool '{tool_name}'. Available tools: {list(AVAILABLE_TOOLS.keys())}"
+        }
+
+    tool_function = AVAILABLE_TOOLS[tool_name]
+    try:
+        call_args = dict(arguments or {})
+        call_args["user_id"] = user_id
+        return tool_function(**call_args)
+    except Exception as exc:
+        return {
+            "status": "error",
+            "message": f"Error executing tool '{tool_name}': {str(exc)}"
+        }
